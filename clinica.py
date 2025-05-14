@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox
 import json
 import os
 
@@ -7,227 +7,190 @@ DATA_DIR = "clinica_data"
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
-def save_data(filename, data):
-    with open(os.path.join(DATA_DIR, filename), "w") as f:
-        json.dump(data, f, indent=4)
+def salvar_json(nome, dados):
+    with open(os.path.join(DATA_DIR, nome), "w") as f:
+        json.dump(dados, f, indent=4)
 
-def load_data(filename):
-    try:
-        with open(os.path.join(DATA_DIR, filename), "r") as f:
+def carregar_json(nome):
+    caminho = os.path.join(DATA_DIR, nome)
+    if os.path.exists(caminho):
+        with open(caminho, "r") as f:
             return json.load(f)
-    except FileNotFoundError:
-        return {}
+    return {}
 
-pacientes = load_data("pacientes.json")
-medicos = load_data("medicos.json")
-consultas = load_data("consultas.json")
+pacientes = carregar_json("pacientes.json")
+medicos = carregar_json("medicos.json")
+consultas = carregar_json("consultas.json")
 
-def gerar_id(dicionario):
-    return str(max([int(i) for i in dicionario.keys()], default=0) + 1)
+def gerar_id(dic):
+    return str(max([int(k) for k in dic.keys()], default=0) + 1)
+
+def interface_crud(titulo, campos, salvar_callback, dados_iniciais=None):
+    win = tk.Toplevel(root)
+    win.title(titulo)
+    entradas = {}
+
+    for i, campo in enumerate(campos):
+        tk.Label(win, text=campo).grid(row=i, column=0)
+        ent = tk.Entry(win)
+        ent.grid(row=i, column=1)
+        if dados_iniciais and campo in dados_iniciais:
+            ent.insert(0, dados_iniciais[campo])
+        entradas[campo] = ent
+
+    def salvar():
+        valores = {k: v.get() for k, v in entradas.items()}
+        salvar_callback(valores)
+        win.destroy()
+
+    tk.Button(win, text="Salvar", command=salvar).grid(row=len(campos), column=0, columnspan=2)
 
 def cadastrar_paciente():
-    def salvar():
-        nome = nome_entry.get()
-        cpf = cpf_entry.get()
-        tel = tel_entry.get()
-        if nome and cpf and tel:
-            pid = gerar_id(pacientes)
-            pacientes[pid] = {"nome": nome, "cpf": cpf, "telefone": tel}
-            save_data("pacientes.json", pacientes)
-            messagebox.showinfo("Sucesso", "Paciente cadastrado com sucesso!")
-            win.destroy()
-        else:
-            messagebox.showwarning("Erro", "Preencha todos os campos.")
+    def salvar(dados):
+        pid = gerar_id(pacientes)
+        pacientes[pid] = dados
+        salvar_json("pacientes.json", pacientes)
+        messagebox.showinfo("Pronto", "Paciente cadastrado com sucesso!")
 
-    win = tk.Toplevel(root)
-    win.title("Cadastrar Paciente")
-    tk.Label(win, text="Nome:").grid(row=0, column=0)
-    tk.Label(win, text="CPF:").grid(row=1, column=0)
-    tk.Label(win, text="Telefone:").grid(row=2, column=0)
-    nome_entry = tk.Entry(win)
-    cpf_entry = tk.Entry(win)
-    tel_entry = tk.Entry(win)
-    nome_entry.grid(row=0, column=1)
-    cpf_entry.grid(row=1, column=1)
-    tel_entry.grid(row=2, column=1)
-    tk.Button(win, text="Salvar", command=salvar).grid(row=3, column=0, columnspan=2)
+    interface_crud("Cadastrar Paciente", ["nome", "cpf", "telefone"], salvar)
 
-def excluir_paciente():
-    def excluir():
+def editar_paciente():
+    def buscar():
         pid = entry_id.get()
         if pid in pacientes:
-            del pacientes[pid]
-            save_data("pacientes.json", pacientes)
-            messagebox.showinfo("Sucesso", "Paciente excluído.")
+            interface_crud("Editar Paciente", ["nome", "cpf", "telefone"], lambda d: atualizar("pacientes", pacientes, "pacientes.json", pid, d), pacientes[pid])
             win.destroy()
         else:
             messagebox.showerror("Erro", "ID não encontrado.")
 
     win = tk.Toplevel(root)
-    win.title("Excluir Paciente")
-    tk.Label(win, text="ID do Paciente:").pack()
+    win.title("Editar Paciente")
+    tk.Label(win, text="ID do Paciente").pack()
     entry_id = tk.Entry(win)
     entry_id.pack()
-    tk.Button(win, text="Excluir", command=excluir).pack()
+    tk.Button(win, text="Buscar", command=buscar).pack()
+
+def excluir_paciente():
+    excluir("pacientes", pacientes, "pacientes.json")
 
 def ver_pacientes():
-    win = tk.Toplevel(root)
-    win.title("Lista de Pacientes")
-    text = tk.Text(win, width=60, height=20)
-    text.pack()
-    for pid, p in pacientes.items():
-        text.insert(tk.END, f"ID: {pid}\nNome: {p['nome']}\nCPF: {p['cpf']}\nTelefone: {p['telefone']}\n\n")
+    listar("Pacientes", pacientes)
 
 def cadastrar_medico():
-    def salvar():
-        nome = nome_entry.get()
-        esp = esp_entry.get()
-        crm = crm_entry.get()
-        if nome and esp and crm:
-            mid = gerar_id(medicos)
-            medicos[mid] = {"nome": nome, "especialidade": esp, "crm": crm}
-            save_data("medicos.json", medicos)
-            messagebox.showinfo("Sucesso", "Médico cadastrado com sucesso!")
-            win.destroy()
-        else:
-            messagebox.showwarning("Erro", "Preencha todos os campos.")
+    def salvar(dados):
+        mid = gerar_id(medicos)
+        medicos[mid] = dados
+        salvar_json("medicos.json", medicos)
+        messagebox.showinfo("Pronto", "Médico cadastrado com sucesso!")
 
-    win = tk.Toplevel(root)
-    win.title("Cadastrar Médico")
-    tk.Label(win, text="Nome:").grid(row=0, column=0)
-    tk.Label(win, text="Especialidade:").grid(row=1, column=0)
-    tk.Label(win, text="CRM:").grid(row=2, column=0)
-    nome_entry = tk.Entry(win)
-    esp_entry = tk.Entry(win)
-    crm_entry = tk.Entry(win)
-    nome_entry.grid(row=0, column=1)
-    esp_entry.grid(row=1, column=1)
-    crm_entry.grid(row=2, column=1)
-    tk.Button(win, text="Salvar", command=salvar).grid(row=3, column=0, columnspan=2)
+    interface_crud("Cadastrar Médico", ["nome", "especialidade", "crm"], salvar)
 
-def excluir_medico():
-    def excluir():
+def editar_medico():
+    def buscar():
         mid = entry_id.get()
         if mid in medicos:
-            del medicos[mid]
-            save_data("medicos.json", medicos)
-            messagebox.showinfo("Sucesso", "Médico excluído.")
+            interface_crud("Editar Médico", ["nome", "especialidade", "crm"], lambda d: atualizar("medicos", medicos, "medicos.json", mid, d), medicos[mid])
             win.destroy()
         else:
             messagebox.showerror("Erro", "ID não encontrado.")
 
     win = tk.Toplevel(root)
-    win.title("Excluir Médico")
-    tk.Label(win, text="ID do Médico:").pack()
+    win.title("Editar Médico")
+    tk.Label(win, text="ID do Médico").pack()
     entry_id = tk.Entry(win)
     entry_id.pack()
-    tk.Button(win, text="Excluir", command=excluir).pack()
+    tk.Button(win, text="Buscar", command=buscar).pack()
+
+def excluir_medico():
+    excluir("medicos", medicos, "medicos.json")
 
 def ver_medicos():
-    win = tk.Toplevel(root)
-    win.title("Lista de Médicos")
-    text = tk.Text(win, width=60, height=20)
-    text.pack()
-    for mid, m in medicos.items():
-        text.insert(tk.END, f"ID: {mid}\nNome: {m['nome']}\nEspecialidade: {m['especialidade']}\nCRM: {m['crm']}\n\n")
+    listar("Médicos", medicos)
 
 def marcar_consulta():
-    def salvar():
-        pid = paciente_var.get().split(" - ")[0]
-        mid = medico_var.get().split(" - ")[0]
-        data = data_entry.get()
-        hora = hora_entry.get()
-        obs = obs_entry.get()
-
-        if pid and mid and data and hora:
-            for c in consultas.values():
-                if c["medico"] == mid and c["data"] == data and c["hora"] == hora:
-                    messagebox.showerror("Erro", "Médico já possui consulta neste horário.")
-                    return
+    def salvar(dados):
+        if dados["paciente_id"] in pacientes and dados["medico_id"] in medicos:
             cid = gerar_id(consultas)
-            consultas[cid] = {
-                "paciente": pid,
-                "medico": mid,
-                "data": data,
-                "hora": hora,
-                "observacoes": obs
-            }
-            save_data("consultas.json", consultas)
-            messagebox.showinfo("Sucesso", "Consulta marcada com sucesso!")
-            win.destroy()
+            consultas[cid] = dados
+            salvar_json("consultas.json", consultas)
+            messagebox.showinfo("Pronto", "Consulta marcada com sucesso!")
         else:
-            messagebox.showwarning("Erro", "Preencha todos os campos obrigatórios.")
+            messagebox.showerror("Erro", "ID do paciente ou médico inválido.")
 
-    win = tk.Toplevel(root)
-    win.title("Marcar Consulta")
+    interface_crud("Marcar Consulta", ["paciente_id", "medico_id", "data", "hora", "observacoes"], salvar)
 
-    tk.Label(win, text="Paciente:").grid(row=0, column=0)
-    tk.Label(win, text="Médico:").grid(row=1, column=0)
-    tk.Label(win, text="Data (DD/MM/AAAA):").grid(row=2, column=0)
-    tk.Label(win, text="Hora (HH:MM):").grid(row=3, column=0)
-    tk.Label(win, text="Observações:").grid(row=4, column=0)
-
-    paciente_var = tk.StringVar(win)
-    medico_var = tk.StringVar(win)
-
-    paciente_menu = ttk.Combobox(win, textvariable=paciente_var, values=[
-        f"{k} - {v['nome']}" for k, v in pacientes.items()
-    ])
-    medico_menu = ttk.Combobox(win, textvariable=medico_var, values=[
-        f"{k} - {v['nome']} ({v['especialidade']})" for k, v in medicos.items()
-    ])
-    data_entry = tk.Entry(win)
-    hora_entry = tk.Entry(win)
-    obs_entry = tk.Entry(win)
-
-    paciente_menu.grid(row=0, column=1)
-    medico_menu.grid(row=1, column=1)
-    data_entry.grid(row=2, column=1)
-    hora_entry.grid(row=3, column=1)
-    obs_entry.grid(row=4, column=1)
-
-    tk.Button(win, text="Salvar", command=salvar).grid(row=5, column=0, columnspan=2)
-
-def consultar_consultas():
-    win = tk.Toplevel(root)
-    win.title("Consultas Marcadas")
-    text = tk.Text(win, width=80, height=20)
-    text.pack()
-    for cid, c in consultas.items():
-        paciente = pacientes.get(c["paciente"], {}).get("nome", "Desconhecido")
-        medico = medicos.get(c["medico"], {}).get("nome", "Desconhecido")
-        text.insert(tk.END, f"ID: {cid}\nPaciente: {paciente}\nMédico: {medico}\nData: {c['data']} {c['hora']}\nObs: {c['observacoes']}\n\n")
-
-def excluir_consulta():
-    def excluir():
+def editar_consulta():
+    def buscar():
         cid = entry_id.get()
         if cid in consultas:
-            del consultas[cid]
-            save_data("consultas.json", consultas)
-            messagebox.showinfo("Sucesso", "Consulta excluída.")
+            interface_crud("Editar Consulta", ["paciente_id", "medico_id", "data", "hora", "observacoes"], lambda d: atualizar("consultas", consultas, "consultas.json", cid, d), consultas[cid])
             win.destroy()
         else:
             messagebox.showerror("Erro", "ID não encontrado.")
 
     win = tk.Toplevel(root)
-    win.title("Excluir Consulta")
-    tk.Label(win, text="ID da Consulta:").pack()
+    win.title("Editar Consulta")
+    tk.Label(win, text="ID da Consulta").pack()
     entry_id = tk.Entry(win)
     entry_id.pack()
-    tk.Button(win, text="Excluir", command=excluir).pack()
+    tk.Button(win, text="Buscar", command=buscar).pack()
+
+def excluir_consulta():
+    excluir("consultas", consultas, "consultas.json")
+
+def consultar_consultas():
+    listar("Consultas", consultas)
+
+def listar(titulo, dicionario):
+    win = tk.Toplevel(root)
+    win.title(titulo)
+    for k, v in dicionario.items():
+        linha = f"ID: {k}, " + ", ".join([f"{key}: {val}" for key, val in v.items()])
+        tk.Label(win, text=linha).pack()
+
+def excluir(tipo, dic, arquivo):
+    def deletar():
+        rid = entry_id.get()
+        if rid in dic:
+            del dic[rid]
+            salvar_json(arquivo, dic)
+            messagebox.showinfo("Sucesso", f"{tipo[:-1].capitalize()} excluído!")
+            win.destroy()
+        else:
+            messagebox.showerror("Erro", "ID não encontrado.")
+
+    win = tk.Toplevel(root)
+    win.title(f"Excluir {tipo[:-1].capitalize()}")
+    tk.Label(win, text=f"ID do {tipo[:-1].capitalize()}").pack()
+    entry_id = tk.Entry(win)
+    entry_id.pack()
+    tk.Button(win, text="Excluir", command=deletar).pack()
+
+def atualizar(tipo, dic, arquivo, id_, novos_dados):
+    dic[id_] = novos_dados
+    salvar_json(arquivo, dic)
+    messagebox.showinfo("Sucesso", f"{tipo[:-1].capitalize()} atualizado com sucesso!")
 
 root = tk.Tk()
 root.title("Sistema da Clínica Médica")
 
-tk.Button(root, text="Cadastrar Paciente", width=30, command=cadastrar_paciente).pack(pady=5)
-tk.Button(root, text="Excluir Paciente", width=30, command=excluir_paciente).pack(pady=5)
-tk.Button(root, text="Ver Pacientes", width=30, command=ver_pacientes).pack(pady=5)
-tk.Button(root, text="Cadastrar Médico", width=30, command=cadastrar_medico).pack(pady=5)
-tk.Button(root, text="Excluir Médico", width=30, command=excluir_medico).pack(pady=5)
-tk.Button(root, text="Ver Médicos", width=30, command=ver_medicos).pack(pady=5)
-tk.Button(root, text="Marcar Consulta", width=30, command=marcar_consulta).pack(pady=5)
-tk.Button(root, text="Consultar Consultas", width=30, command=consultar_consultas).pack(pady=5)
-tk.Button(root, text="Excluir Consulta", width=30, command=excluir_consulta).pack(pady=5)
-tk.Button(root, text="Sair", width=30, command=root.quit).pack(pady=20)
+botoes = [
+    ("Cadastrar Paciente", cadastrar_paciente),
+    ("Editar Paciente", editar_paciente),
+    ("Excluir Paciente", excluir_paciente),
+    ("Ver Pacientes", ver_pacientes),
+    ("Cadastrar Médico", cadastrar_medico),
+    ("Editar Médico", editar_medico),
+    ("Excluir Médico", excluir_medico),
+    ("Ver Médicos", ver_medicos),
+    ("Marcar Consulta", marcar_consulta),
+    ("Editar Consulta", editar_consulta),
+    ("Excluir Consulta", excluir_consulta),
+    ("Ver Consultas", consultar_consultas),
+    ("Sair", root.quit),
+]
+
+for texto, funcao in botoes:
+    tk.Button(root, text=texto, width=40, command=funcao).pack(pady=3)
 
 root.mainloop()
