@@ -1,0 +1,9 @@
+{
+    "1": {
+        "paciente": "1",
+        "medico": "1",
+        "data": "14/05/2025",
+        "hora": "09:00",
+        "observacoes": "Exame de rotina"
+    }
+}
